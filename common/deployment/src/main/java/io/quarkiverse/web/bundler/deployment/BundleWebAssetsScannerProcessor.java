@@ -29,6 +29,7 @@ import io.quarkiverse.web.bundler.deployment.items.BundleWebAsset.BundleType;
 import io.quarkiverse.web.bundler.deployment.items.DevWatcherHistoryBuildItem;
 import io.quarkiverse.web.bundler.deployment.items.EntryPointBuildItem;
 import io.quarkiverse.web.bundler.deployment.items.EntryPointBuildItem.EntryPoint;
+import io.quarkiverse.web.bundler.deployment.items.GeneratedBundleWebAssetBuildItem;
 import io.quarkiverse.web.bundler.deployment.items.WebBundlerTargetDirBuildItem;
 import io.quarkus.deployment.IsDevelopment;
 import io.quarkus.deployment.annotations.BuildProducer;
@@ -85,6 +86,7 @@ class BundleWebAssetsScannerProcessor {
             BuildProducer<EntryPointBuildItem> bundles,
             BuildProducer<GeneratedResourceBuildItem> generatedResourceProducer,
             BuildProducer<BundleConfigAssetsBuildItem> bundleConfigAssets,
+            List<GeneratedBundleWebAssetBuildItem> generatedAssets,
             WebBundlerConfig config)
             throws IOException {
         LOGGER.debug("Web Bundler scan - Bundles: start");
@@ -142,6 +144,21 @@ class BundleWebAssetsScannerProcessor {
                     entryPoints.get(entryPointKey).assets().add(new BundleWebAsset(webAsset, bundleType));
                 }
             }
+        }
+
+        for (GeneratedBundleWebAssetBuildItem generated : generatedAssets) {
+            final EntryPoint entryPoint = entryPoints.get(generated.entryPointKey());
+            if (entryPoint == null) {
+                throw new IllegalStateException("Generated web asset '%s' targets an unknown entry point '%s' (available: %s)"
+                        .formatted(generated.scopedPath(), generated.entryPointKey(), entryPoints.keySet()));
+            }
+            final boolean hasIndex = entryPoint.assets().stream().anyMatch(a -> a.bundleType() == BundleType.INDEX);
+            final String indexPath = StringPaths.join(config.prefixWithWebRoot(entryPoint.dir()), generated.scopedPath());
+            entryPoint.assets().add(new BundleWebAsset(
+                    new ClasspathProjectFile(indexPath, generated.scopedPath(), null,
+                            ProjectFile.Origin.DEPENDENCY_RESOURCE, indexPath, generated.content(),
+                            StandardCharsets.UTF_8),
+                    hasIndex ? BundleType.MANUAL : BundleType.AUTO));
         }
 
         if (entryPoints.size() == 1 && entryPoints.get(DEFAULT_ENTRY_POINT_KEY) != null

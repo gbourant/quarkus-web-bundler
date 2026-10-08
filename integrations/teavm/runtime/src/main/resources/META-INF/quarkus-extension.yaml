@@ -1,0 +1,11 @@
+name: Web Bundler - TeaVM
+description: Compile Java classes to JavaScript with TeaVM and bundle them
+metadata:
+  keywords:
+    - web-bundler
+    - teavm
+    - javascript
+    - UI
+  categories:
+    - "web"
+  status: "experimental"
